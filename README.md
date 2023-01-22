@@ -29,7 +29,7 @@ The default is a collection of women's poetry:
 The notebook can be run on Google Colab or locally.
 
 - local cpu (not recommended, too slow!)
-- local gpu (either CUDA or Apple Silicon (using pytorch MPS)
+- local gpu (either CUDA or Apple Silicon (using pytorch MPS))
 - Google Colab (GPU)
 
 ## History
