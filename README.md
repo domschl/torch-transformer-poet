@@ -3,9 +3,34 @@
 <a href="https://colab.research.google.com/github/domschl/torch-transformer-poet/blob/main/torch_transformer_poet.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE)
 
-Character, ngram or word based transformer model for text generation. Uses [ml-indie-tools](https://github.com/domschl/ml-indie-tools) to run locally on M1-Mac, Nvidia or remotely on Colab with single code-base.
+## Description
 
-You can find the transformer attention implementation at the [ml-indie-project](https://github.com/domschl/ml-indie-tools/blob/42859f8036aae3455f0231fbeb1b71d982f25d14/src/ml_indie_tools/pytorch_custom_layers.py#L244), it's minimal and directly taken from Andrej Karpathy's nanoGPT and [ng-video-lecture](https://github.com/karpathy/ng-video-lecture/blob/master/gpt.py) implementation.
+Transformer based text generation with PyTorch. Uses a transformer implementation based on Andrej Karpathy's nanoGPT and [ng-video-lecture](https://github.com/karpathy/ng-video-lecture/blob/master/gpt.py).
+
+The implementation and the text libraries reside in the [ml-indie-tools](https://github.com/domschl/ml-indie-tools) library.
+
+Arbitrary collections of books from project Gutenberg can be used as training data.
+
+The default is a collection of women's poetry:
+
+1. Mr. Bennett and Mrs. Brown - Virginia Woolf
+2. Jacob's Room - Virginia Woolf
+3. Pride and Prejudice - Jane Austen
+4. Night and Day - Virginia Woolf
+5. Lady Susan - Jane Austen
+6. Wuthering Heights - Emily Brontë
+7. Sense and Sensibility - Jane Austen
+8. Emma - Jane Austen
+9. The Voyage Out - Virginia Woolf
+10. Mansfield Park - Jane Austen
+11. Northanger Abbey - Jane Austen
+12. Persuasion - Jane Austen
+
+The notebook can be run on Google Colab or locally.
+
+- local cpu (not recommended, too slow!)
+- local gpu (either CUDA or Apple Silicon (using pytorch MPS)
+- Google Colab (GPU)
 
 ## History
 
