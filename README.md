@@ -30,26 +30,26 @@ There are two default collections of books:
 
 ### 2. Philosophers
 
-1: The History of Philosophy: Volume 3 of 3 - Georg Wilhelm Hegel
-2: The Will to Power, Books III and IV - Friedrich Nietzsche
-3: The Will to Power, Books I and II - Friedrich Nietzsche
-4: The Joyful Wisdom - Friedrich Nietzsche
-5: Kant's Prolegomena - Immanuel Kant
-6: Hegel's Lectures on the History of Philosophy: Vol. 2 of 3 - Georg Wilhelm Hegel
-7: Hegel's Lectures on the History of Philosophy: Vol. 1 of 3 - Georg Wilhelm Hegel
-8: Early Greek Philosophy & Other Essays - Friedrich Nietzsche
-9: Perpetual Peace - Immanuel Kant
-10: Kant's Critique of Judgement - Immanuel Kant
-11: Thoughts Out of Season, Part 2 - Friedrich Nietzsche
-12: Human, All Too Human - Friedrich Nietzsche
-13: We Philologists, Volume 8 of 18 - Friedrich Nietzsche
-14: The Metaphysical Elements of Ethics - Immanuel Kant
-15: The Critique of Practical Reason - Immanuel Kant
-16: Fundamental Principles of the Metaphysic of Morals - Immanuel Kant
-17: Thoughts out of Season, Part One - Friedrich Nietzsche
-18: Beyond Good and Evil - Friedrich Nietzsche
-19: The Critique of Pure Reason - Immanuel Kant
-20: Thus Spake Zarathustra - Friedrich Nietzsche
+1. The History of Philosophy: Volume 3 of 3 - Georg Wilhelm Hegel
+2. The Will to Power, Books III and IV - Friedrich Nietzsche
+3. The Will to Power, Books I and II - Friedrich Nietzsche
+4. The Joyful Wisdom - Friedrich Nietzsche
+5. Kant's Prolegomena - Immanuel Kant
+6. Hegel's Lectures on the History of Philosophy: Vol. 2 of 3 - Georg Wilhelm Hegel
+7. Hegel's Lectures on the History of Philosophy: Vol. 1 of 3 - Georg Wilhelm Hegel
+8. Early Greek Philosophy & Other Essays - Friedrich Nietzsche
+9. Perpetual Peace - Immanuel Kant
+10. Kant's Critique of Judgement - Immanuel Kant
+11. Thoughts Out of Season, Part 2 - Friedrich Nietzsche
+12. Human, All Too Human - Friedrich Nietzsche
+13. We Philologists, Volume 8 of 18 - Friedrich Nietzsche
+14. The Metaphysical Elements of Ethics - Immanuel Kant
+15. The Critique of Practical Reason - Immanuel Kant
+16. Fundamental Principles of the Metaphysic of Morals - Immanuel Kant
+17. Thoughts out of Season, Part One - Friedrich Nietzsche
+18. Beyond Good and Evil - Friedrich Nietzsche
+19. The Critique of Pure Reason - Immanuel Kant
+20. Thus Spake Zarathustra - Friedrich Nietzsche
 
 The notebook can be run on Google Colab or locally.
 
