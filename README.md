@@ -11,6 +11,10 @@ The implementation and the text libraries reside in the [ml-indie-tools](https:/
 
 Arbitrary collections of books from project Gutenberg can be used as training data.
 
+![](https://github.com/domschl/torch-transformer-poet/blob/main/doc/absolute_truth_on_nvidia.png)
+
+_A sample of generated text with the philosophers collection (s.b.) and start prompt "Absolute truth "._   
+
 There are two default collections of books:
 
 ### 1. Women writers:
