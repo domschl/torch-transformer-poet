@@ -2,4 +2,4 @@
 data/
 logs/
 model/
-
+__pycache__/
