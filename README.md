@@ -13,7 +13,8 @@ Arbitrary collections of books from project Gutenberg can be used as training da
 
 ![](https://github.com/domschl/torch-transformer-poet/blob/main/doc/absolute_truth_on_nvidia.png)
 
-_A sample of generated text with the philosophers collection (s.b.) and start prompt "Absolute truth ". The color coding identifies verbatim source passages from the training data in order to visualize the amount of mere memorization._   
+_A sample of generated text with the philosophers collection (s.b.) and start prompt "Absolute truth ". The color coding identifies verbatim source passages from the training data in order to visualize the amount of mere memorization._ 
+Hardware: Nvidia 1080ti, after about 12h of training time, loss at about 0.57.
 
 ## Training data
 
