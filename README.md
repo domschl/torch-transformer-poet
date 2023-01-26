@@ -13,9 +13,11 @@ Arbitrary collections of books from project Gutenberg can be used as training da
 
 ![](https://github.com/domschl/torch-transformer-poet/blob/main/doc/absolute_truth_on_nvidia.png)
 
-_A sample of generated text with the philosophers collection (s.b.) and start prompt "Absolute truth "._   
+_A sample of generated text with the philosophers collection (s.b.) and start prompt "Absolute truth ". The color coding identifies verbatim source passages from the training data in order to visualize the amount of mere memorization._   
 
-There are two default collections of books:
+## Training data
+
+There are two default collections of books (which can easily changed to any other collection):
 
 ### 1. Women writers:
 
