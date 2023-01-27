@@ -26,6 +26,7 @@ Use a net with [71M parameters](https://github.com/domschl/torch-transformer-poe
 | M2 Max 30 graphics cores, 32GB | 2.34s | 2.95x |
 
 A Macbook Pro Max with 30 graphics cores, using about 50W during training can run training on models only 2.95 times slower than a Nvidia A100 card!
+The Macbook used latests (as of 2022-01-26) Pytorch 2.0 beta with MPS (metal performance shaders) support.
 This makes it possible to do prototyping on Macbook Pro laptops. Memory is important, since the entire Mac memory can be used for training.
 
 ## Training data
