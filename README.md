@@ -16,6 +16,19 @@ Arbitrary collections of books from project Gutenberg can be used as training da
 _A sample of generated text with the philosophers collection (s.b.) and start prompt "Absolute truth ". The color coding identifies verbatim source passages from the training data in order to visualize the amount of mere memorization._ 
 Hardware: Nvidia 1080ti, after about 12h of training time, loss at about 0.57.
 
+## Some benchmark data
+
+Use a net with [71M parameters](https://github.com/domschl/torch-transformer-poet/commit/60592f4b38a2f030a3962ae320791fa3dbe444ff), 32 self-attention layers which 16 heads each, the iterations over a sample from the philosopher's dataset are compared:
+
+| Hardware | Sec/Iterations | Factor |
+| -------- | ---------- | ------ |
+| Nvidia A100 (40GB, Colab Pro) | 0.8s  | 1.0x |
+| M2 Max 30 graphics cores, 32GB | 2.34s | 2.95x |
+
+A Macbook Pro Max with 30 graphics cores, using about 50W during training can run training on models only 2.95 times slower than a Nvidia A100 card!
+The Macbook used latests (as of 2022-01-26) Pytorch 2.0 beta with MPS (metal performance shaders) support.
+This makes it possible to do prototyping on Macbook Pro laptops. Memory is important, since the entire Mac memory can be used for training.
+
 ## Training data
 
 There are two default collections of books (which can easily changed to any other collection):
