@@ -79,6 +79,7 @@ The notebook can be run on Google Colab or locally.
 
 ## History
 
+* 2023-02-01: Allow interchange of models between Colab/Nvidia and Apple MPS
 * 2023-01-25: HTML output with source markup, philosopher's lib added.
 * 2023-01-22: use temperature for sampling
 * 2023-01-21: ml-indie-tools 0.4.2 basis for pytorch GPT tests on all platforms.
