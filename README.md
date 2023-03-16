@@ -79,6 +79,7 @@ The notebook can be run on Google Colab or locally.
 
 ## History
 
+* 2023-03-16: Colab now tries to install Pytorch 2.0 and then to compile the model. Warning: checkpoints from 1.x cannot be imported into 2.0, long compile times before start of training, but then: _fast_! :-)
 * 2023-02-01: Allow interchange of models between Colab/Nvidia and Apple MPS
 * 2023-01-25: HTML output with source markup, philosopher's lib added.
 * 2023-01-22: use temperature for sampling
