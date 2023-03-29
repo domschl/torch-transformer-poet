@@ -20,14 +20,21 @@ Hardware: Nvidia 1080ti, after about 12h of training time, loss at about 0.57.
 
 Use a net with [71M parameters](https://github.com/domschl/torch-transformer-poet/commit/60592f4b38a2f030a3962ae320791fa3dbe444ff), 32 self-attention layers which 16 heads each, the iterations over a sample from the philosopher's dataset are compared:
 
-| Hardware | Sec/Iterations | Factor |
-| -------- | ---------- | ------ |
-| Nvidia A100 (40GB, Colab Pro) | 0.8s  | 1.0x |
-| M2 Max 30 graphics cores, 32GB | 2.34s | 2.95x |
+| Hardware | Sec/Iterations | Factor | Remark |
+| -------- | ---------- | ------ | ------- |
+| Nvidia A100 (40GB, Colab Pro) | 0.8s  | 1.0x |  |
+| M2 Max 30 graphics cores, 32GB | 2.34s | 2.95x | A100 is 3x faster than the Macbook |
 
 A Macbook Pro Max with 30 graphics cores, using about 50W during training can run training on models only 2.95 times slower than a Nvidia A100 card!
-The Macbook used latests (as of 2022-01-26) Pytorch 2.0 beta with MPS (metal performance shaders) support.
+The Macbook used latests (as of 2023-01-26) Pytorch 2.0 beta with MPS (metal performance shaders) support.
 This makes it possible to do prototyping on Macbook Pro laptops. Memory is important, since the entire Mac memory can be used for training.
+
+Update 2023-03-28, Mac: Pytorch 2.1 nightly, Colab: Pytorch 2.0 (from PIP):
+
+| Hardware | Sec/Iterations | Factor | Remark |
+| -------- | ---------- | ------ | ------- |
+| Nvidia T4 (16GB, Colab Pro) | 0.539s  | 1.34x | Macbook is 1.34 x faster than Nvidia T4 |
+| M2 Max 30 graphics cores, 32GB | 0.401s | 1.0x |  |
 
 ## Training data
 
