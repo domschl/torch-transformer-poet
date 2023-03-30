@@ -86,6 +86,7 @@ The notebook can be run on Google Colab or locally.
 
 ## History
 
+* 2023-03-30: Adapted to ml_indie_tools 0.7
 * 2023-03-28: Optionally replace dropout by the Compressor-Transformer (tm), activated by dropout>1.0, actual compression for dropout > 4.0.
 * 2023-03-16: Colab now tries to install Pytorch 2.0 and then to compile the model. Warning: checkpoints from 1.x cannot be imported into 2.0, long compile times before start of training, but then: _fast_! :-)
 * 2023-02-01: Allow interchange of models between Colab/Nvidia and Apple MPS
