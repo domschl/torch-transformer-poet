@@ -9,4 +9,5 @@ lib/
 lib64
 pyvenv.cfg
 share/
-additional_texts.json
+additional_texts.json*
+.virtual_documents/
