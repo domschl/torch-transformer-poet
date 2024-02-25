@@ -1,8 +1,5 @@
 numpy
 torch
-torchvision
-torchaudio
-mlx
 jupyterlab
 ipywidgets
-transformers
+ml-indie-tools
