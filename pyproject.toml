@@ -1,0 +1,13 @@
+[project]
+name = "torch-transformer-poet"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ipywidgets>=8.1.5",
+    "jupyterlab>=4.3.5",
+    "ml-indie-tools>=0.12.42",
+    "numpy>=2.2.3",
+    "torch>=2.6.0",
+]
