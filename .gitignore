@@ -3,11 +3,7 @@ data/
 logs/
 model/
 __pycache__/
-bin/
-etc/
-lib/
-lib64
 pyvenv.cfg
-share/
 additional_texts.json*
 .virtual_documents/
+.vscode/
