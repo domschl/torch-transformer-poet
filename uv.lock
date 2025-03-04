@@ -334,14 +334,14 @@ wheels = [
 
 [[package]]
 name = "indralib"
-version = "0.3.1"
+version = "0.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d9/3e/c2fd60a6525b6d1265cabda878b85cd35dbe5094b5924d0eecb9f6c6bd29/indralib-0.3.1.tar.gz", hash = "sha256:eb84a4dd1348beaacbcd2d562eb1f759b3529e7fff8c96baa43d15823ea3e2c8", size = 17388 }
+sdist = { url = "https://files.pythonhosted.org/packages/de/b1/2053c75040699690bdd2cfc0389c3fe9dbe3da11769fe1c462af15f13ec6/indralib-0.4.2.tar.gz", hash = "sha256:e41eaea05667a25496c498389ce6251263ee5b12c8a52abfcf8664d9c0e551bc", size = 17603 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/58/f9e699f3359ba8797252befe3492ac05d67c733ce570013003c01257e5a4/indralib-0.3.1-py3-none-any.whl", hash = "sha256:b9b825ed659b3442f34f021c120efd7996c7c8a20cbbff29bb8f8bd48e09cb86", size = 18658 },
+    { url = "https://files.pythonhosted.org/packages/d8/48/f72ec37de0d54f4828313781455f20b55a7242366582b7f9d8089afdb2f1/indralib-0.4.2-py3-none-any.whl", hash = "sha256:c7df78bc203db4384525e125679b46778740a81f853b80a53acf4597b30d1684", size = 18904 },
 ]
 
 [[package]]
@@ -725,11 +725,11 @@ wheels = [
 
 [[package]]
 name = "ml-indie-tools"
-version = "0.12.42"
+version = "0.13.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/66/e1/ee76e93d27e4fd0e94d925d6801c2c0db8644699cdaecd54b3322d38eb48/ml_indie_tools-0.12.42.tar.gz", hash = "sha256:68b751ac809086043b429dbdf6e9af320566017021437b3640fdcb9e9dc6dbd1", size = 49900 }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/84/4c2c7c0a13b234bc6a7717b9026dacd89e0d41e73c104d6836fe09f23525/ml_indie_tools-0.13.1.tar.gz", hash = "sha256:8817d86ac21011a2c7a4b0bcbf059f50959e9806fcc74baf81a2d02de7a4c74c", size = 50048 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/59/19e6d29fef99c39e45a97816374d98e258de6ea96bcc57ec1c2810ce1be2/ml_indie_tools-0.12.42-py3-none-any.whl", hash = "sha256:74cd513556d6ccba6cfb34a0754e9f0e14d212af6702524983be09d96542f49f", size = 50480 },
+    { url = "https://files.pythonhosted.org/packages/21/71/b75b396597457991b8304c9525c20064301c1cd12322e1b1a5266f4a8872/ml_indie_tools-0.13.1-py3-none-any.whl", hash = "sha256:835f9b451379caf924ae81d53fc63e501f3b07ca69e555d1d676d3c5359f904b", size = 50505 },
 ]
 
 [[package]]
