@@ -7,3 +7,5 @@ pyvenv.cfg
 additional_texts.json*
 .virtual_documents/
 .vscode/
+indra_creds.json
+
