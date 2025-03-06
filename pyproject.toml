@@ -10,5 +10,6 @@ dependencies = [
     "jupyterlab",
     "ml-indie-tools",
     "numpy",
+    "sentencepiece>=0.2.0",
     "torch",
 ]
