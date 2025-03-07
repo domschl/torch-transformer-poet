@@ -316,7 +316,7 @@ params = { # Multi-head self-attention
         'mid_dropout': 0.1,  # Used by recurrence
         'weight_decay': 1e-3,  # L2 regularization, applied by Adam optimizer
         'non_linearity': nn.Mish,  # CriticalModule.CriticalActivationLayer,  # Default nn.ReLU
-        'use_attention_recurrence': True,  # Add CriticalActivationLayer before recurrent_layer
+        'use_recurrent_attention': True,  # Add CriticalActivationLayer before recurrent_layer
         'model_dimension': model_dimension,
         'test_iterations': 100,  # number of iterations for loss estimation
 
