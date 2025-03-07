@@ -313,7 +313,7 @@ params = { # Multi-head self-attention
         'context_length': context_length,
         'min_dropout': 0.1,  # first layer of prelude, last layer of coda
         'max_dropout': 0.4,  # last layer of prelude, first layer of coda
-        'mid_dropout': 0.1,  # Used by recurrence
+        'rec_dropout': 0.1,  # Used by recurrence
         'weight_decay': 1e-2,  # L2 regularization, applied by Adam optimizer
         'non_linearity': nn.Mish,  # CriticalModule.CriticalActivationLayer,  # Default nn.ReLU
         'use_recurrent_attention': True,  # Add CriticalActivationLayer before recurrent_layer
@@ -419,7 +419,7 @@ class PositionalEncoding(nn.Module):
 
 # In[ ]:
 class RecurrentMultiheadAttention(nn.Module):
-    def __init__(self, embed_dim, num_heads, dropout=0.0):
+    def __init__(self, embed_dim, num_heads, dropout=0.0, rec_dropout=0.0):
         super(RecurrentMultiheadAttention, self).__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
         
@@ -427,6 +427,7 @@ class RecurrentMultiheadAttention(nn.Module):
         self.num_heads = num_heads
         self.d_k = embed_dim // num_heads  # dimension per head
         self.dropout = nn.Dropout(dropout)
+        self.rec_dropout = nn.Dropout(rec_dropout)
         
         # Linear projections for Q, V, R (K is replaced by H computed from R)
         self.q_linear = nn.Linear(embed_dim, embed_dim)
@@ -483,6 +484,7 @@ class RecurrentMultiheadAttention(nn.Module):
             R_t = R_proj[:, :, t, :]  # (batch_size, num_heads, d_k)
             # Recurrence: h_t = tanh(W_h h_{t-1} + R_t)
             h_t = torch.tanh(torch.einsum('hnk,bhn->bhn', self.W_h, h_t) + R_t)
+            h_t = self.rec_dropout(h_t)
             H_list.append(h_t)
         
         # Stack to form H: (batch_size, num_heads, seq_len_k, d_k)
@@ -509,11 +511,11 @@ class RecurrentMultiheadAttention(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, model_dimension, heads, projection_dimension, dropout=0.1, non_linearity=nn.ReLU, recurrent_att=True):
+    def __init__(self, model_dimension, heads, projection_dimension, dropout=0.1, non_linearity=nn.ReLU, recurrent_att=True, rec_dropout=0.0):
         super(TransformerBlock, self).__init__()
         self.recurrent_att = recurrent_att
         if recurrent_att is True:
-            self.self_attn = RecurrentMultiheadAttention(model_dimension, heads, dropout=dropout)
+            self.self_attn = RecurrentMultiheadAttention(model_dimension, heads, dropout=dropout, rec_dropout=rec_dropout)
         else:
             self.self_attn = nn.MultiheadAttention(model_dimension, heads, dropout=dropout)
         self.norm1 = nn.LayerNorm(model_dimension)
@@ -546,7 +548,7 @@ class TransformerBlock(nn.Module):
 
 class RecurrentDepthModel(nn.Module):
     def __init__(self, vocab_size, model_dimension, heads, context_length, projection_dimension,
-                 n1_prelude, n3_coda, min_dropout=0.1, max_dropout=0.1, non_linearity=nn.ReLU, use_critical=False, use_recurrent_attention=True):
+                 n1_prelude, n3_coda, min_dropout=0.1, max_dropout=0.1, non_linearity=nn.ReLU, use_critical=False, use_recurrent_attention=True, rec_dropout=0.0):
         """
         Args:
             vocab_size (int): Size of the vocabulary (for embedding and projection).
@@ -574,7 +576,7 @@ class RecurrentDepthModel(nn.Module):
                 drop = min_dropout + (max_dropout - min_dropout)*(i/(n1_prelude-1))
             else:
                 drop = (min_dropout + max_dropout) / 2
-            tr_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity, recurrent_att=use_recurrent_attention))
+            tr_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity, recurrent_att=use_recurrent_attention, rec_dropout=rec_dropout))
  
         self.prelude = nn.ModuleList(tr_list)
 
@@ -585,7 +587,7 @@ class RecurrentDepthModel(nn.Module):
                 drop = max_dropout - (max_dropout - min_dropout)*(i/(n3_coda-1))
             else:
                 drop = (min_dropout + max_dropout) / 2
-            cd_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity, recurrent_att=use_recurrent_attention))
+            cd_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity, recurrent_att=use_recurrent_attention, rec_dropout=rec_dropout))
         self.coda = nn.ModuleList(cd_list)
 
         # Final projection layer (e.g., to vocab size for generation)
@@ -747,7 +749,8 @@ model = RecurrentDepthModel(
     model_dimension=params['model_dimension'], heads=params['heads'], projection_dimension=params['model_dimension']*4,
     context_length=params['context_length'],
     n1_prelude=params['prelude_layers'], n3_coda=params['coda_layers'], 
-    min_dropout=params['min_dropout'], max_dropout=params['max_dropout'], non_linearity=params['non_linearity'], use_recurrent_attention=params['use_recurrent_attention']
+    min_dropout=params['min_dropout'], max_dropout=params['max_dropout'], non_linearity=params['non_linearity'], use_recurrent_attention=params['use_recurrent_attention'],
+    rec_dropout=params['rec_dropout']
 )
 model.apply(init_weights)
 optimizer = torch.optim.AdamW(model.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'])
