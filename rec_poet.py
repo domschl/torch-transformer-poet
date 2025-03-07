@@ -490,6 +490,11 @@ class RecurrentMultiheadAttention(nn.Module):
         # Stack to form H: (batch_size, num_heads, seq_len_k, d_k)
         H = torch.stack(H_list, dim=2)
         
+        # if use_torch_compile is False:
+        #     # Variance debug:
+        #     if torch.rand(1).item() < 0.01:
+        #         print("H variance:", H.var(dim=2).mean().item())
+
         # Compute attention scores: Q H^T
         scores = torch.matmul(Q, H.transpose(-2, -1)) * self.scale  # (batch_size, num_heads, seq_len_q, seq_len_k)
         
@@ -500,6 +505,12 @@ class RecurrentMultiheadAttention(nn.Module):
         
         # Softmax and compute output
         attn_weights = torch.softmax(scores, dim=-1)  # (batch_size, num_heads, seq_len_q, seq_len_k)
+
+        # if use_torch_compile is False:
+        #     # Attention weights debug:
+        #     if torch.rand(1).item() < 0.01:  # Log 1% of the time
+        #         print("Attention weights mean:", attn_weights.mean().item(), "std:", attn_weights.std().item())
+
         attn_weights = self.dropout(attn_weights)
         attn_output = torch.matmul(attn_weights, V)  # (batch_size, num_heads, seq_len_q, d_k)
         
