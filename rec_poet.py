@@ -557,7 +557,7 @@ class RecurrentDepthModel(nn.Module):
             recurrence_steps (int): Recurrent steps per LRD block.
             dropout (float): Dropout rate.
         """
-        super(LatentRecurrentDepthModel, self).__init__()
+        super(RecurrentDepthModel, self).__init__()
 
         self.context_length = context_length  # for generate
         self.model_dimension = model_dimension
@@ -610,15 +610,6 @@ class RecurrentDepthModel(nn.Module):
         for block in self.prelude:
             x = block(x, attn_mask, key_padding_mask)
 
-        # Critical function
-        if self.critical is not None:
-            x = self.critical(x)
-
-        # Recurrent: Refine latents
-        if self.recurrent is not None:
-            for block in self.recurrent:
-                x = block(x, attn_mask, key_padding_mask)
-
         # Coda: Exit from latent space
         for block in self.coda:
             x = block(x, attn_mask, key_padding_mask)
@@ -669,7 +660,7 @@ class RecurrentDepthModel(nn.Module):
         Beam search generation with static abort condition.
 
         Args:
-            model: LatentRecurrentDepthModel
+            model: RecurrentDepthModel
             tokenizer: Your custom/botok tokenizer (no [EOS])
             prompt (str): Starting text
             max_len (int): Max output length
@@ -751,7 +742,7 @@ try:
 except:
     pass
 
-model = LatentRecurrentDepthModel(
+model = RecurrentDepthModel(
     vocab_size=params['vocab_size'],
     model_dimension=params['model_dimension'], heads=params['heads'], projection_dimension=params['model_dimension']*4,
     context_length=params['context_length'],
