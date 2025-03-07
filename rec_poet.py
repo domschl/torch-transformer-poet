@@ -311,10 +311,10 @@ params = { # Multi-head self-attention
         'heads': 16,
         'vocab_size': vocab_size,
         'context_length': context_length,
-        'min_dropout': 0.1,  # first layer of prelude, last layer of coda
-        'max_dropout': 0.4,  # last layer of prelude, first layer of coda
-        'rec_dropout': 0.1,  # Used by recurrence
-        'weight_decay': 1e-2,  # L2 regularization, applied by Adam optimizer
+        'min_dropout': 0.2,  # first layer of prelude, last layer of coda
+        'max_dropout': 0.6,  # last layer of prelude, first layer of coda
+        'rec_dropout': 0.6,  # Used by recurrence
+        'weight_decay': 1e-1,  # L2 regularization, applied by Adam optimizer
         'non_linearity': nn.Mish,  # CriticalModule.CriticalActivationLayer,  # Default nn.ReLU
         'use_recurrent_attention': True,  # Add CriticalActivationLayer before recurrent_layer
         'model_dimension': model_dimension,
@@ -433,7 +433,7 @@ class RecurrentMultiheadAttention(nn.Module):
         self.q_linear = nn.Linear(embed_dim, embed_dim)
         self.v_linear = nn.Linear(embed_dim, embed_dim)
         self.r_linear = nn.Linear(embed_dim, embed_dim)
-        
+
         # Recurrent weight matrix W_h for each head, shape (num_heads, d_k, d_k)
         self.W_h = nn.Parameter(torch.randn(num_heads, self.d_k, self.d_k))
         
@@ -479,7 +479,8 @@ class RecurrentMultiheadAttention(nn.Module):
         
         # Compute recurrent hidden states H from R_proj
         H_list = []
-        h_t = torch.zeros(batch_size, self.num_heads, self.d_k, device=R.device)  # Initial hidden state
+        # h_t = torch.zeros(batch_size, self.num_heads, self.d_k, device=R.device)  # Initial hidden state
+        h_t = torch.randn(batch_size, self.num_heads, self.d_k, device=R.device) * 0.01  # Noisy initial state
         for t in range(seq_len_k):
             R_t = R_proj[:, :, t, :]  # (batch_size, num_heads, d_k)
             # Recurrence: h_t = tanh(W_h h_{t-1} + R_t)
@@ -488,7 +489,7 @@ class RecurrentMultiheadAttention(nn.Module):
             H_list.append(h_t)
         
         # Stack to form H: (batch_size, num_heads, seq_len_k, d_k)
-        H = torch.stack(H_list, dim=2)
+        hs = torch.stack(H_list, dim=2) * self.scale
         
         # if use_torch_compile is False:
         #     # Variance debug:
@@ -496,7 +497,7 @@ class RecurrentMultiheadAttention(nn.Module):
         #         print("H variance:", H.var(dim=2).mean().item())
 
         # Compute attention scores: Q H^T
-        scores = torch.matmul(Q, H.transpose(-2, -1)) * self.scale  # (batch_size, num_heads, seq_len_q, seq_len_k)
+        scores = torch.matmul(Q, hs.transpose(-2, -1)) * self.scale  # (batch_size, num_heads, seq_len_q, seq_len_k)
         
         # Apply attention mask if provided
         if attn_mask is not None:
@@ -932,7 +933,7 @@ def train():
             iter_bench = 1
             sdt = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             print(f"Sample at {sdt}:", flush=True)
-            for temperature in [1.0]: # 0.75, 1.1, 1.3, 1.5]:
+            for temperature in [0.9]: # 0.75, 1.1, 1.3, 1.5]:
                 print(f"--------temperature: {temperature} ---------")
                 prompt = inputs[gen_id%len(inputs)]
                 print(f"Prompt: {prompt}")
