@@ -312,9 +312,9 @@ params = { # Multi-head self-attention
         'vocab_size': vocab_size,
         'context_length': context_length,
         'min_dropout': 0.1,  # first layer of prelude, last layer of coda
-        'max_dropout': 0.2,  # last layer of prelude, first layer of coda
+        'max_dropout': 0.4,  # last layer of prelude, first layer of coda
         'mid_dropout': 0.1,  # Used by recurrence
-        'weight_decay': 1e-3,  # L2 regularization, applied by Adam optimizer
+        'weight_decay': 1e-2,  # L2 regularization, applied by Adam optimizer
         'non_linearity': nn.Mish,  # CriticalModule.CriticalActivationLayer,  # Default nn.ReLU
         'use_recurrent_attention': True,  # Add CriticalActivationLayer before recurrent_layer
         'model_dimension': model_dimension,
