@@ -84,41 +84,6 @@ text_list = get_texts()
 text_corpus = '\n\n\n'.join(text_list)
 
 
-# In[10]:
-
-def progress_bar_string(progress, max_progress, bar_length=20):
-    """Create a Unicode progress bar string
-
-    This creates a string of length bar_length with a Unicode progress bar using
-    fractional Unicode block characters. The returned string is always of constant
-    length and is suitable for printing to a terminal or notebook.
-
-    This pretty much obsoletes the `tqdm` or similar package for simple progress bars.
-
-    :param progress: current progress
-    :param max_progress: maximum progress
-    :param bar_length: length of the progress bar
-    :return: Unicode progress bar string of length `bar_length`
-    """
-    progress_frac = progress / max_progress
-    num_blocks = int(bar_length * progress_frac)
-    rem = bar_length * progress_frac - num_blocks
-    blocks = " ▏▎▍▌▋▊▉█"
-    remainder_index = int(rem * len(blocks))
-    bar = blocks[-1] * num_blocks
-    if remainder_index > 0:
-        bar += blocks[remainder_index]
-    bar += " " * (bar_length - len(bar))
-    return bar
-
-print(f"Number of texts: {len(text_list)}, corpus length in bytes: {len(text_corpus)}")
-
-
-# In[11]:
-
-
-text_list[0][:100]
-
 
 # ## 2.3 Tokenize data
 
@@ -342,10 +307,7 @@ params = { # Multi-head self-attention
         'meta_name_template': '{prelude_layers}-{recurrent_layers}/{recurrence_steps}-{coda_layers}x{heads}x{units}x{vocab_size}',
 
         'prelude_layers': 8,
-        'recurrent_layer_blocks': 0,
         'coda_layers': 4,
-        'recurrent_layers': 0,
-        'recurrence_steps': 1,
         'heads': 16,
         'vocab_size': vocab_size,
         'context_length': context_length,
@@ -354,7 +316,7 @@ params = { # Multi-head self-attention
         'mid_dropout': 0.1,  # Used by recurrence
         'weight_decay': 1e-3,  # L2 regularization, applied by Adam optimizer
         'non_linearity': nn.Mish,  # CriticalModule.CriticalActivationLayer,  # Default nn.ReLU
-        'use_critical': False,  # Add CriticalActivationLayer before recurrent_layer
+        'use_attention_recurrence': True,  # Add CriticalActivationLayer before recurrent_layer
         'model_dimension': model_dimension,
         'test_iterations': 100,  # number of iterations for loss estimation
 
@@ -582,52 +544,9 @@ class TransformerBlock(nn.Module):
         x = self.norm2(x + self.dropout2(ff_output))
         return x
 
-class LatentRecurrentBlock(nn.Module):
-    def __init__(self, model_dimension, heads, projection_dimension, recurrent_layers=1, recurrence_steps=3, dropout=0.1, non_linearity=nn.ReLU):
-        super(LatentRecurrentBlock, self).__init__()
-        self.recurrence_steps = recurrence_steps
-        self.self_attn = nn.MultiheadAttention(model_dimension, heads, dropout=dropout)
-        self.norm1 = nn.LayerNorm(model_dimension)
-        self.dropout1 = nn.Dropout(dropout)
-        self.recurrent_layers = recurrent_layers
-        self.recurrent = nn.LSTM(  # Swap GRU for LSTM
-            input_size=model_dimension,
-            hidden_size=model_dimension,
-            num_layers=recurrent_layers,
-            batch_first=True,
-            bidirectional=False
-        )
-        self.ff = nn.Sequential(
-            nn.Linear(model_dimension, projection_dimension),
-            non_linearity(),
-            nn.Dropout(dropout),
-            nn.Linear(projection_dimension, model_dimension)
-        )
-        self.norm2 = nn.LayerNorm(model_dimension)
-        self.dropout2 = nn.Dropout(dropout)
-
-    def forward(self, x, attn_mask=None, key_padding_mask=None):
-        attn_output, _ = self.self_attn(x, x, x,
-                                      attn_mask=attn_mask,
-                                      key_padding_mask=key_padding_mask)
-        x = self.norm1(x + self.dropout1(attn_output))
-        residual = x
-        batch_size = x.size(1)
-        latent = x.transpose(0, 1).contiguous()  # [batch, seq_len, model_dimension]
-        latent = latent.view(batch_size * x.size(0), 1, x.size(2))  # [batch*seq, 1, model_dimension]
-        h0 = torch.zeros(self.recurrent_layers, latent.size(0), x.size(2), device=x.device)
-        c0 = torch.zeros(self.recurrent_layers, latent.size(0), x.size(2), device=x.device)  # Add cell state
-        for _ in range(self.recurrence_steps):
-            latent, (h0, c0) = self.recurrent(latent, (h0, c0))  # LSTM outputs hidden + cell
-        latent = latent.view(x.size(1), x.size(0), -1).transpose(0, 1)
-        latent = residual + latent
-        ff_output = self.ff(latent)
-        output = self.norm2(latent + self.dropout2(ff_output))
-        return output
-
-class LatentRecurrentDepthModel(nn.Module):
+class RecurrentDepthModel(nn.Module):
     def __init__(self, vocab_size, model_dimension, heads, context_length, projection_dimension,
-                 n1_prelude, n2_recurrent, n3_coda, recurrent_layers=1, recurrence_steps=3, min_dropout=0.1, mid_dropout=0.2, max_dropout=0.1, non_linearity=nn.ReLU, use_critical=False):
+                 n1_prelude, n3_coda, min_dropout=0.1, max_dropout=0.1, non_linearity=nn.ReLU, use_critical=False, use_recurrent_attention=True):
         """
         Args:
             vocab_size (int): Size of the vocabulary (for embedding and projection).
@@ -655,23 +574,9 @@ class LatentRecurrentDepthModel(nn.Module):
                 drop = min_dropout + (max_dropout - min_dropout)*(i/(n1_prelude-1))
             else:
                 drop = (min_dropout + max_dropout) / 2
-            tr_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity))
+            tr_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity, recurrent_att=use_recurrent_attention))
  
         self.prelude = nn.ModuleList(tr_list)
-
-        if use_critical is True:
-            self.critical = CriticalModule.CriticalActivationLayer(model_dimension)
-        else:
-            self.critical = None
-
-        # Latent Recurrent blocks
-        if n2_recurrent > 0:
-            self.recurrent = nn.ModuleList([
-                LatentRecurrentBlock(model_dimension, heads, projection_dimension, recurrent_layers, recurrence_steps, mid_dropout, non_linearity)
-                for _ in range(n2_recurrent)
-            ])
-        else:
-            self.recurrent = None
 
         # Coda blocks
         cd_list = []
@@ -680,7 +585,7 @@ class LatentRecurrentDepthModel(nn.Module):
                 drop = max_dropout - (max_dropout - min_dropout)*(i/(n3_coda-1))
             else:
                 drop = (min_dropout + max_dropout) / 2
-            cd_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity))
+            cd_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity, recurrent_att=use_recurrent_attention))
         self.coda = nn.ModuleList(cd_list)
 
         # Final projection layer (e.g., to vocab size for generation)
@@ -850,8 +755,8 @@ model = LatentRecurrentDepthModel(
     vocab_size=params['vocab_size'],
     model_dimension=params['model_dimension'], heads=params['heads'], projection_dimension=params['model_dimension']*4,
     context_length=params['context_length'],
-    n1_prelude=params['prelude_layers'], n2_recurrent=params['recurrent_layer_blocks'], n3_coda=params['coda_layers'], 
-    recurrent_layers=params['recurrent_layers'], recurrence_steps=params['recurrence_steps'], min_dropout=params['min_dropout'], mid_dropout=params['mid_dropout'], max_dropout=params['max_dropout'], non_linearity=params['non_linearity'], use_critical=params['use_critical']
+    n1_prelude=params['prelude_layers'], n3_coda=params['coda_layers'], 
+    min_dropout=params['min_dropout'], max_dropout=params['max_dropout'], non_linearity=params['non_linearity'], use_recurrent_attention=params['use_recurrent_attention']
 )
 model.apply(init_weights)
 optimizer = torch.optim.AdamW(model.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'])
