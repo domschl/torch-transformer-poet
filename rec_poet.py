@@ -325,7 +325,7 @@ params = { # Multi-head self-attention
         'learning_rate': 4e-4,  # Only used, if lr_schedule is False
         'lr_schedule': True,
         'lr_min': 5e-5,
-        'lr_max': 3e-4,
+        'lr_max': 1e-4,
         'warmup': 4000,
         'decay': 50000,
     
