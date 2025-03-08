@@ -2,11 +2,11 @@
 # In[1]:
 
 import logging
-import sys
 import os
 import json
 import time
 import datetime
+import gc
 import math
 import random
 import numpy as np
@@ -39,7 +39,7 @@ model_cpu = None
 model_name=f'{project_name}_v1'
 
 use_preprocessed_data = True                      # Use already tokenized data
-use_existing_model_from_checkpoint = True         # Try to load checkpoint of training
+use_existing_model_from_checkpoint = False         # Try to load checkpoint of training
 use_torch_compile = True                           # Requires a modern graphics card with torch compile backend support
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -79,9 +79,11 @@ def get_texts(path:str = "~/BookTextLib/Texts") -> list[str]:
 
 # In[9]:
 
+if use_preprocessed_data is False:
+    text_list = get_texts()
+    text_corpus = '\n\n\n'.join(text_list)
 
-text_list = get_texts()
-text_corpus = '\n\n\n'.join(text_list)
+    print(f"Number of texts: {len(text_list)}, corpus length in bytes: {len(text_corpus)}")
 
 
 # In[10]:
@@ -111,13 +113,8 @@ def progress_bar_string(progress, max_progress, bar_length=20):
     bar += " " * (bar_length - len(bar))
     return bar
 
-print(f"Number of texts: {len(text_list)}, corpus length in bytes: {len(text_corpus)}")
-
 
 # In[11]:
-
-
-text_list[0][:100]
 
 
 # ## 2.3 Tokenize data
@@ -214,7 +211,7 @@ else:
 
 
 # In[ ]:
-
+gc.collect()
 
 tok_tests = ["Good morning, this is a simple test sentence for tokenization",
              "Guten Morgen, dies is ein einfach Testsatz zur Aufteilung in Satzbestandteile",
@@ -334,13 +331,13 @@ def load_checkpoint(
 params = None
 updatable_keys=['learning_rate', 'batch_size', 'current_epoch', 'current_loss',
                  'sample_every_n_iterations', 'sample_size', 'save_every_n_iterations', 'max_iterations']
-model_dimension = 512
+model_dimension = 384
 context_length = 128
 
 params = { # Multi-head self-attention
         'meta_name_template': '{prelude_layers}-{recurrent_layers}/{recurrence_steps}-{coda_layers}x{heads}x{units}x{vocab_size}',
 
-        'prelude_layers': 8,
+        'prelude_layers': 6,
         'recurrent_layer_blocks': 0,
         'coda_layers': 4,
         'recurrent_layers': 0,
@@ -368,7 +365,7 @@ params = { # Multi-head self-attention
     
         'grad_clip': 0.8,
 
-        'sample_every_n_iterations': 8192,
+        'sample_every_n_iterations': 4096,
         'sample_size': 128,
         'save_every_n_iterations': 8192,
 
