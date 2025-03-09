@@ -1,5 +1,4 @@
 import logging
-import sys
 import os
 import json
 import time
@@ -7,15 +6,12 @@ import datetime
 import math
 import random
 import numpy as np
-from zoneinfo import ZoneInfo
 
 import sentencepiece as spm
 
 import torch
 import torch.nn as nn
-from torch import Tensor
 from torch.nn import functional as F
-from torch.autograd import Function
 
 logging.basicConfig(level=logging.INFO)
 log = logging.Logger("Main")
@@ -27,7 +23,7 @@ model_name=f'{project_name}_v1'
 
 use_preprocessed_data = True                      # Use already tokenized data
 use_existing_model_from_checkpoint = False         # Try to load checkpoint of training
-use_torch_compile = True                           # Requires a modern graphics card with torch compile backend support
+use_torch_compile = False                           # Requires a modern graphics card with torch compile backend support
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 device = torch.device("mps") if torch.backends.mps.is_available() else device
@@ -243,15 +239,16 @@ def load_checkpoint(
 
 params = None
 updatable_keys=['learning_rate', 'batch_size', 'current_epoch', 'current_loss',
-                 'sample_every_n_iterations', 'sample_size', 'save_every_n_iterations', 'max_iterations']
-model_dimension = 128
-context_length = 192
+                 'sample_every_n_iterations', 'save_every_n_iterations', 'max_iterations']
+model_dimension = 192
+context_length = 128
 
 params = { # Multi-head self-attention
         'meta_name_template': '{prelude_layers}-{recurrent_layers}/{recurrence_steps}-{coda_layers}x{heads}x{units}x{vocab_size}',
 
         'prelude_layers': 3,
         'coda_layers': 3,
+        'yoke_layers': 3,
         'heads': 4,
         'vocab_size': vocab_size,
         'context_length': context_length,
@@ -261,7 +258,8 @@ params = { # Multi-head self-attention
         'weight_decay': 1e-3,  # L2 regularization, applied by Adam optimizer
         'non_linearity': nn.Mish,  # CriticalModule.CriticalActivationLayer,  # Default nn.ReLU
         'model_dimension': model_dimension,
-        'yoke_dimension': model_dimension // 3,
+        'yoke_dimension': model_dimension // 8,
+        'hard_yoke': 64,
         'test_iterations': 100,  # number of iterations for loss estimation
 
         'batch_size': 64,
@@ -372,7 +370,7 @@ class TransformerBlock(nn.Module):
 
 class DepthModel(nn.Module):
     def __init__(self, vocab_size, model_dimension, heads, context_length, projection_dimension, yoke_dimension,
-                 n1_prelude, n3_coda, min_dropout=0.1, mid_dropout=0.2, max_dropout=0.1, non_linearity=nn.ReLU):
+                 n1_prelude, n2_yoke, n3_coda, hard_yoke, min_dropout=0.1, mid_dropout=0.2, max_dropout=0.1, non_linearity=nn.ReLU):
         """
         Args:
             vocab_size (int): Size of the vocabulary (for embedding and projection).
@@ -385,7 +383,7 @@ class DepthModel(nn.Module):
         """
         super(DepthModel, self).__init__()
 
-        self.context_length = context_length  # for generate
+        self.context_length = context_length  # for reshaping stuff
         self.model_dimension = model_dimension
 
         # Embedding layer
@@ -400,14 +398,22 @@ class DepthModel(nn.Module):
                 drop = min_dropout + (max_dropout - min_dropout)*(i/(n1_prelude-1))
             else:
                 drop = (min_dropout + max_dropout) / 2
-            tr_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity))
+            tr_list.append(TransformerBlock(model_dimension, heads, model_dimension, drop, non_linearity))
+        self.prelude = nn.ModuleList(tr_list)
  
         self.yoke_entry = nn.Linear(model_dimension, yoke_dimension)
-        self.yoke_dropout = nn.Dropout(mid_dropout)
+        yk_list_1 = []
+        for i in range(n2_yoke):
+            yk_list_1.append(TransformerBlock(yoke_dimension, heads, yoke_dimension, mid_dropout, non_linearity))
+        self.yoke_1 = nn.ModuleList(yk_list_1)
+        self.hard_yoke_in = nn.Linear(yoke_dimension * context_length, hard_yoke)
+        self.hard_yoke_out = nn.Linear(hard_yoke, yoke_dimension*context_length)
+        yk_list_2 = []
+        for i in range(n2_yoke):
+            yk_list_2.append(TransformerBlock(yoke_dimension, heads, yoke_dimension, mid_dropout, non_linearity))
+        self.yoke_2 = nn.ModuleList(yk_list_2)
         self.yoke_exit = nn.Linear(yoke_dimension, model_dimension)
-
-        self.prelude = nn.ModuleList(tr_list)
-
+        
         # Coda blocks
         cd_list = []
         for i in range(n3_coda):
@@ -415,21 +421,17 @@ class DepthModel(nn.Module):
                 drop = max_dropout - (max_dropout - min_dropout)*(i/(n3_coda-1))
             else:
                 drop = (min_dropout + max_dropout) / 2
-            cd_list.append(TransformerBlock(model_dimension, heads, projection_dimension, drop, non_linearity))
+            if i+1 == n3_coda:
+                c_dim = model_dimension
+            else:
+                c_dim = projection_dimension
+            cd_list.append(TransformerBlock(model_dimension, heads, c_dim, drop, non_linearity))
         self.coda = nn.ModuleList(cd_list)
 
         # Final projection layer (e.g., to vocab size for generation)
         self.proj = nn.Linear(model_dimension, vocab_size)
 
-    def forward(self, input_ids, attn_mask=None, key_padding_mask=None):
-        """
-        Args:
-            input_ids (torch.Tensor): Token IDs [batch_size, seq_len].
-            attn_mask (torch.Tensor, optional): Attention mask [seq_len, seq_len].
-            key_padding_mask (torch.Tensor, optional): Padding mask [batch_size, seq_len].
-        Returns:
-            torch.Tensor: Output logits [batch_size, seq_len, vocab_size].
-        """
+    def compress(self, input_ids, attn_mask=None, key_padding_mask=None):
         # Embed input tokens
         x = self.embedding(input_ids) * math.sqrt(self.model_dimension) # /2.0  # [batch_size, seq_len, model_dimension]
         # x = self.pos_encoding(x)
@@ -441,9 +443,26 @@ class DepthModel(nn.Module):
             x = block(x, attn_mask, key_padding_mask)
 
         # Yoke
+        x = x.transpose(0, 1)  # [batch_size, seq_len, model_dimension]
         x = self.yoke_entry(x)
-        x = self.yoke_dropout(x)
+        x = x.transpose(0, 1)  # [seq_len, batch_size, model_dimension]
+        for block in self.yoke_1:
+            x = block(x, attn_mask, key_padding_mask)
+        x = x.transpose(0, 1)  # [batch_size, seq_len, model_dimension]
+        batch_size = x.shape[0]
+        x = x.reshape(batch_size, -1)
+        x = self.hard_yoke_in(x)
+        return x, batch_size
+
+    def decompress(self, x, batch_size, attn_mask=None, key_padding_mask=None):
+        x = self.hard_yoke_out(x)
+        x = x.reshape(batch_size, self.context_length, -1)
+        x = x.transpose(0, 1)  # [seq_len, batch_size, model_dimension]
+        for block in self.yoke_2:
+            x = block(x, attn_mask, key_padding_mask)
+        x = x.transpose(0, 1)  # [batch_size, seq_len, model_dimension]
         x = self.yoke_exit(x)
+        x = x.transpose(0, 1)  # [seq_len, batch_size, model_dimension]
         # Coda: Exit from latent space
         for block in self.coda:
             x = block(x, attn_mask, key_padding_mask)
@@ -453,40 +472,18 @@ class DepthModel(nn.Module):
         output = self.proj(x)  # [batch_size, seq_len, vocab_size]
         return output
 
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
-        """Generate new tokens given a context
-
-        Note: for apple MPS, top_k is limited max 16 vor older torchs! ((01/2023) implementation limitation)
-        See: https://github.com/pytorch/pytorch/issues/78915
-        Solved in: https://github.com/pytorch/pytorch/pull/94639 (03/2023)
-
-        :param idx: the context (B,T) tensor of indices
-        :param max_new_tokens: the maximum number of tokens to generate
-        :param temperature: the temperature to use for sampling
-        :param top_k: the number of top tokens to consider
+    def forward(self, input_ids, attn_mask=None, key_padding_mask=None):
         """
-        # idx is (B, T) array of indices in the current context
-        for _ in range(max_new_tokens):
-            # crop idx to the last context_length tokens
-            idx_cond = idx[:, -self.context_length :]
-            # print(idx_cond.shape)
-            # get the predictions
-            logits = self(idx_cond)
-            # focus only on the last time step
-            logits = logits[:, -1, :]  # becomes (B, C)
-            if top_k is not None:
-                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-                logits[logits < v[:, [-1]]] = -float("Inf")
-            # apply temperature
-            if temperature != 1.0 and temperature > 0.0:
-                logits = logits / temperature
-            # apply softmax to get probabilities
-            probs = F.softmax(logits, dim=-1)  # (B, C)
-            # sample from the distribution
-            idx_next = torch.multinomial(probs, num_samples=1)  # (B, 1)
-            # append sampled index to the running sequence
-            idx = torch.cat((idx, idx_next), dim=1)  # (B, T+1)
-        return idx
+        Args:
+            input_ids (torch.Tensor): Token IDs [batch_size, seq_len].
+            attn_mask (torch.Tensor, optional): Attention mask [seq_len, seq_len].
+            key_padding_mask (torch.Tensor, optional): Padding mask [batch_size, seq_len].
+        Returns:
+            torch.Tensor: Output logits [batch_size, seq_len, vocab_size].
+        """
+        x, bs = self.compress(input_ids, attn_mask=attn_mask, key_padding_mask=key_padding_mask)
+        output = self.decompress(x, bs, attn_mask=attn_mask, key_padding_mask=key_padding_mask)
+        return output
 
 def init_weights(m):
     if isinstance(m, (nn.Linear, nn.GRU, nn.LSTM)):
@@ -509,8 +506,9 @@ model = DepthModel(
     vocab_size=params['vocab_size'],
     model_dimension=params['model_dimension'], heads=params['heads'], projection_dimension=params['model_dimension']*4, yoke_dimension=params['yoke_dimension'],
     context_length=params['context_length'],
-    n1_prelude=params['prelude_layers'], n3_coda=params['coda_layers'], 
-    min_dropout=params['min_dropout'], mid_dropout=params['mid_dropout'], max_dropout=params['max_dropout'], non_linearity=params['non_linearity']
+    n1_prelude=params['prelude_layers'], n2_yoke=params['yoke_layers'], n3_coda=params['coda_layers'], 
+    min_dropout=params['min_dropout'], mid_dropout=params['mid_dropout'], max_dropout=params['max_dropout'], 
+    non_linearity=params['non_linearity'], hard_yoke=params['hard_yoke']
 )
 model.apply(init_weights)
 optimizer = torch.optim.AdamW(model.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'])
@@ -520,7 +518,7 @@ if use_existing_model_from_checkpoint is True:
     params_load = load_checkpoint(params, model, optimizer, file_path=model_file_path, updatable_keys=updatable_keys, device=device, log=log) # torch.device("cpu"))
     if params_load is not None:
         params = params_load
-model = model.to(device)
+    model = model.to(device)
 for state in optimizer.state.values():
     for k, v in state.items():
         if isinstance(v, torch.Tensor):
@@ -535,10 +533,8 @@ if use_torch_compile is True:
             torch.set_float32_matmul_precision('high')
         except:
             print("Seems no tensor cores for that.")
-    # elif str(device) == 'mps':
-    #     print("Compiling...")
-    #     model = torch.compile(model)
-    #     print("Compile ok.")
+    elif str(device) == 'mps':
+        print("Compiling NOT SUPPORTED (yet) for MPS devices")
 
 if 'current_epoch' in params:
     ep = params['current_epoch']
@@ -556,7 +552,7 @@ else:
     current_loss = ls
 
 # print the number of parameters in the model
-# print(model)
+print(model)
 print(sum(p.numel() for p in model.parameters()) / 1e6, "M parameters")
 
 # @torch.jit.script
@@ -659,31 +655,19 @@ def train():
                 f"step {iter+1}: train loss {current_loss:.4f}, time {(dt-dt0)/iter_bench:.3f} sec/iter                       "
             )
             iter_bench = 1
-            if False:
-                sdt = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(f"Sample at {sdt}:", flush=True)
-                for temperature in [0.8, 1.0, 1.2]: # 0.75, 1.1, 1.3, 1.5]:
-                    print(f"--------temperature: {temperature} ---------")
-                    prompt = inputs[gen_id%len(inputs)]
-                    print(f"Prompt: {prompt}")
-                    txt = generate_sample(device=device, prompt=prompt, toks=params['sample_size'], temperature=temperature, top_k=10, with_beam=False)
-                    print(txt)
-                    # print(f"Prompt: {prompt}")
-                    # txt = generate_sample(device=device, prompt=prompt, toks=params['sample_size'], temperature=temperature, top_k=10, with_beam=True)
-                    # print(txt)
-                print("-------------------------------------------")
-            else:
-                model.eval()
-                test, _ = get_torch_batch(1, device, "train")
-                test_bt = test.reshape(1,-1)
-                ans = model(test_bt)
-                ans_ids = torch.argmax(ans, dim=2)
-                model.train()
-                str1 = tokenizer.decode(test_bt[0].tolist()).replace("\n", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ")
-                str2 = tokenizer.decode(ans_ids[0].tolist()).replace("\n", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ")
-                print(str1)
-                print(str2)
-                print("-------------------------------------------")
+            model.eval()
+            test, _ = get_torch_batch(1, device, "train")
+            test_bt = test.reshape(1,-1)
+            compr, bs = model.compress(test_bt)
+            ans = model.decompress(compr, bs)
+            ans_ids = torch.argmax(ans, dim=2)
+            model.train()
+            str1 = tokenizer.decode(test_bt[0].tolist()).replace("\n", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ")
+            str2 = tokenizer.decode(ans_ids[0].tolist()).replace("\n", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ")
+            print(str1)
+            print(compr.shape) # tolist())
+            print(str2)
+            print("-------------------------------------------")
             gen_id += 1
             dt0 = time.time()
 
