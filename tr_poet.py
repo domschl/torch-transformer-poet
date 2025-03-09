@@ -347,21 +347,21 @@ params = { # Multi-head self-attention
         'context_length': context_length,
         'min_dropout': 0.1,  # first layer of prelude, last layer of coda
         'max_dropout': 0.2,  # last layer of prelude, first layer of coda
-        'mid_dropout': 0.1,  # Used by recurrence
+        'mid_dropout': 0.1,  # Used by yoke
         'weight_decay': 1e-3,  # L2 regularization, applied by Adam optimizer
         'non_linearity': nn.Mish,  # CriticalModule.CriticalActivationLayer,  # Default nn.ReLU
         'use_critical': False,  # Add CriticalActivationLayer before recurrent_layer
         'model_dimension': model_dimension,
         'test_iterations': 100,  # number of iterations for loss estimation
 
-        'batch_size': 64,
+        'batch_size': 256,
     
         'learning_rate': 4e-4,  # Only used, if lr_schedule is False
         'lr_schedule': True,
-        'lr_min': 5e-5,
-        'lr_max': 3e-4,
-        'warmup': 4000,
-        'decay': 50000,
+        'lr_min': 2e-4,
+        'lr_max': 1e-3,
+        'warmup': 10000,
+        'decay':  50000,
     
         'grad_clip': 0.8,
 

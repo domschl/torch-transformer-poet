@@ -246,32 +246,32 @@ context_length = 128
 params = { # Multi-head self-attention
         'meta_name_template': '{prelude_layers}-{recurrent_layers}/{recurrence_steps}-{coda_layers}x{heads}x{units}x{vocab_size}',
 
-        'prelude_layers': 3,
-        'coda_layers': 3,
+        'prelude_layers': 7,
+        'coda_layers': 7,
         'yoke_layers': 3,
-        'heads': 4,
+        'heads': 8,
         'vocab_size': vocab_size,
         'context_length': context_length,
         'min_dropout': 0.1,  # first layer of prelude, last layer of coda
-        'max_dropout': 0.4,  # last layer of prelude, first layer of coda
+        'max_dropout': 0.2,  # last layer of prelude, first layer of coda
         'mid_dropout': 0.1,  # Used by recurrence
-        'weight_decay': 1e-3,  # L2 regularization, applied by Adam optimizer
+        'weight_decay': 1e-2,  # L2 regularization, applied by Adam optimizer
         'non_linearity': nn.Mish,  # CriticalModule.CriticalActivationLayer,  # Default nn.ReLU
         'model_dimension': model_dimension,
-        'yoke_dimension': model_dimension // 8,
-        'hard_yoke': 64,
+        'yoke_dimension': model_dimension // 6,
+        'hard_yoke': 4096,
         'test_iterations': 100,  # number of iterations for loss estimation
 
         'batch_size': 64,
     
         'learning_rate': 4e-4,  # Only used, if lr_schedule is False
         'lr_schedule': True,
-        'lr_min': 2e-4,
-        'lr_max': 1e-3,
+        'lr_min': 3e-5,
+        'lr_max': 1e-4,
         'warmup': 4000,
         'decay': 50000,
     
-        'grad_clip': 0.8,
+        'grad_clip': 2,
 
         'sample_every_n_iterations': 1024,
         'save_every_n_iterations': 1024,
@@ -448,16 +448,15 @@ class DepthModel(nn.Module):
         x = x.transpose(0, 1)  # [seq_len, batch_size, model_dimension]
         for block in self.yoke_1:
             x = block(x, attn_mask, key_padding_mask)
-        x = x.transpose(0, 1)  # [batch_size, seq_len, model_dimension]
-        batch_size = x.shape[0]
-        x = x.reshape(batch_size, -1)
-        x = self.hard_yoke_in(x)
-        return x, batch_size
+        # x = x.transpose(0, 1)  # [batch_size, seq_len, model_dimension]
+        # x = x.reshape(x.shape[0], -1)
+        # x = self.hard_yoke_in(x)
+        return x
 
-    def decompress(self, x, batch_size, attn_mask=None, key_padding_mask=None):
-        x = self.hard_yoke_out(x)
-        x = x.reshape(batch_size, self.context_length, -1)
-        x = x.transpose(0, 1)  # [seq_len, batch_size, model_dimension]
+    def decompress(self, x, attn_mask=None, key_padding_mask=None):
+        # x = self.hard_yoke_out(x)
+        # x = x.reshape(x.shape[0], self.context_length, -1)
+        # x = x.transpose(0, 1)  # [seq_len, batch_size, model_dimension]
         for block in self.yoke_2:
             x = block(x, attn_mask, key_padding_mask)
         x = x.transpose(0, 1)  # [batch_size, seq_len, model_dimension]
@@ -481,8 +480,8 @@ class DepthModel(nn.Module):
         Returns:
             torch.Tensor: Output logits [batch_size, seq_len, vocab_size].
         """
-        x, bs = self.compress(input_ids, attn_mask=attn_mask, key_padding_mask=key_padding_mask)
-        output = self.decompress(x, bs, attn_mask=attn_mask, key_padding_mask=key_padding_mask)
+        x = self.compress(input_ids, attn_mask=attn_mask, key_padding_mask=key_padding_mask)
+        output = self.decompress(x, attn_mask=attn_mask, key_padding_mask=key_padding_mask)
         return output
 
 def init_weights(m):
@@ -649,7 +648,7 @@ def train():
         # every once in a while evaluate the loss on train and val sets
         if (iter + 1) % params['sample_every_n_iterations'] == 0 or iter == params['max_iterations'] - 1:
             dt = time.time()
-            print(f"\rloss eval", end="", flush=True)
+            print(f"\nloss eval", end="", flush=True)
             current_loss = estimate_loss(device)
             print(
                 f"step {iter+1}: train loss {current_loss:.4f}, time {(dt-dt0)/iter_bench:.3f} sec/iter                       "
@@ -658,8 +657,8 @@ def train():
             model.eval()
             test, _ = get_torch_batch(1, device, "train")
             test_bt = test.reshape(1,-1)
-            compr, bs = model.compress(test_bt)
-            ans = model.decompress(compr, bs)
+            compr = model.compress(test_bt)
+            ans = model.decompress(compr)
             ans_ids = torch.argmax(ans, dim=2)
             model.train()
             str1 = tokenizer.decode(test_bt[0].tolist()).replace("\n", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ").replace("  ", " ")
